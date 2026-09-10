@@ -10,24 +10,49 @@
   <link rel="apple-touch-icon" href="icon-192.png" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
-    body { background-color: #0f172a; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: env(safe-area-inset-top, 20px) 16px env(safe-area-inset-bottom, 20px) 16px; }
+    
+    /* 화면 높이 동적 대응 (100vh 툴바 오버플로우 원천 차단) */
+    body { 
+      background-color: #0f172a; 
+      color: #ffffff; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+      height: 100vh;
+      height: 100dvh; 
+      overflow: hidden; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: space-between; 
+      padding: env(safe-area-inset-top, 14px) 16px env(safe-area-inset-bottom, 14px) 16px; 
+      box-sizing: border-box;
+    }
 
-    /* 메인 상단 바 (새로고침 좌측 배치, 설정/기록 우측 배치) */
-    header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 10px 4px; }
+    /* 메인 상단 바 (flex-shrink: 0 으로 크기 보존) */
+    header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 6px 4px; flex-shrink: 0; }
     .header-right { display: flex; align-items: center; gap: 16px; }
     .btn-icon { background: none; border: none; font-size: 26px; cursor: pointer; opacity: 0.8; transition: transform 0.2s; }
     .btn-icon:active { transform: scale(0.9); }
 
-    /* 룰렛 컨테이너 */
-    .wheel-area { position: relative; width: 92vw; max-width: 390px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+    /* 룰렛 컨테이너: 화면 높이가 좁아져도 버튼을 밀어내지 않고 자동으로 알맞게 축소됨 */
+    .wheel-area { 
+      position: relative; 
+      width: min(88vw, calc(100dvh - 200px), 360px); 
+      max-width: 360px; 
+      aspect-ratio: 1; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      margin: auto 0; 
+      flex-shrink: 1;
+    }
     canvas#wheelCanvas { width: 100%; height: 100%; border-radius: 50%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-    .pointer { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); width: 32px; height: 38px; z-index: 10; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
-    .pointer::before { content: ''; position: absolute; top: 0; left: 0; width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent; border-top: 36px solid #ef4444; }
-    .wheel-center-cap { position: absolute; width: 46px; height: 46px; background: radial-gradient(circle, #f8fafc, #cbd5e1); border-radius: 50%; border: 3px solid #334155; box-shadow: 0 4px 10px rgba(0,0,0,0.4); z-index: 5; }
+    .pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 28px; height: 34px; z-index: 10; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
+    .pointer::before { content: ''; position: absolute; top: 0; left: 0; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 32px solid #ef4444; }
+    .wheel-center-cap { position: absolute; width: 42px; height: 42px; background: radial-gradient(circle, #f8fafc, #cbd5e1); border-radius: 50%; border: 3px solid #334155; box-shadow: 0 4px 10px rgba(0,0,0,0.4); z-index: 5; }
 
-    /* 컨트롤 버튼 */
-    .control-area { width: 100%; display: flex; justify-content: center; padding-bottom: 20px; }
-    .btn-spin { width: 80%; max-width: 320px; height: 60px; background: linear-gradient(135deg, #f59e0b, #d97706); color: #ffffff; border: none; border-radius: 30px; font-size: 22px; font-weight: bold; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 24px rgba(217, 119, 6, 0.4); transition: transform 0.1s, opacity 0.2s; }
+    /* 컨트롤 버튼 (화면 최하단에 항상 밀착 고정) */
+    .control-area { width: 100%; display: flex; justify-content: center; padding-bottom: 8px; flex-shrink: 0; }
+    .btn-spin { width: 80%; max-width: 300px; height: 54px; background: linear-gradient(135deg, #f59e0b, #d97706); color: #ffffff; border: none; border-radius: 28px; font-size: 20px; font-weight: bold; letter-spacing: 2px; cursor: pointer; box-shadow: 0 6px 20px rgba(217, 119, 6, 0.4); transition: transform 0.1s, opacity 0.2s; }
     .btn-spin:active { transform: scale(0.96); }
     .btn-spin:disabled { background: #475569; box-shadow: none; opacity: 0.6; cursor: not-allowed; }
 
@@ -65,16 +90,13 @@
     .slider-row input[type="range"] { flex: 1; accent-color: #f59e0b; }
     .item-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; width: 100%; box-sizing: border-box; }
     
-    /* 입력란 가로폭 초과 방지 스타일 */
     .item-row { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; }
     .btn-badge { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #64748b; background: #334155; color: #94a3b8; font-size: 15px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
     .btn-badge.active { background: #f59e0b; border-color: #f59e0b; color: #ffffff; }
     
-    /* min-width: 0 설정으로 flex 오버플로우 방지 */
     .item-input { flex: 1; min-width: 0; width: 100%; height: 42px; background: #334155; border: 1px solid #475569; border-radius: 8px; padding: 0 10px; color: #ffffff; font-size: 15px; outline: none; box-sizing: border-box; user-select: text; -webkit-user-select: text; }
     .item-input:focus { border-color: #f59e0b; }
 
-    /* 개별 항목 삭제 버튼 */
     .btn-item-del { width: 36px; height: 36px; border-radius: 8px; border: 1px solid #ef4444; background: rgba(239, 68, 68, 0.15); color: #f87171; font-size: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s, color 0.15s, transform 0.1s; }
     .btn-item-del:active { background: #ef4444; color: #ffffff; transform: scale(0.92); }
 
@@ -123,7 +145,7 @@
 </head>
 <body>
 
-  <!-- 메인 상단 헤더 (새로고침 버튼 추가) -->
+  <!-- 메인 상단 헤더 -->
   <header>
     <button class="btn-icon" id="reloadAppBtn" aria-label="새로고침" title="새로고침" style="font-size: 22px;">🔄</button>
     <div class="header-right">
@@ -219,7 +241,6 @@
           실제 당첨자는 <b>[✓ 확정]</b>을 눌러 바로 저장하고, 테스트는 <b>[✕ 삭제]</b>로 버리세요.
         </p>
         
-        <!-- 대기 명단 아이템 리스트 -->
         <div id="tempListArea"></div>
 
         <div class="temp-batch-btns">
@@ -297,7 +318,7 @@
       return day ? `${clean} (${day})` : dateStr;
     }
 
-    // 새로고침 버튼 핸들러: 캐시 스토리지 전체 삭제 및 서비스 워커 강제 갱신 후 리로드
+    // 새로고침 핸들러
     document.getElementById('reloadAppBtn').onclick = async () => {
       try {
         if ('caches' in window) {
@@ -323,7 +344,7 @@
 
     function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
 
-    // 1. 회전 효과음: 바늘이 각 칸을 지날 때 발생하는 물리적 라쳇 사운드
+    // 1. 회전 효과음
     function playTickSound() {
       if (!audioCtx) return;
       try {
