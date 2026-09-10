@@ -1,5 +1,5 @@
 // 캐시 버전을 v8.0으로 올려 폰이 즉시 새 버전을 감지하도록 합니다.
-const CACHE_NAME = 'roulette-app-v8.0';
+const CACHE_NAME = 'roulette-app-v9.0';
 
 const ASSETS = [
   './',
