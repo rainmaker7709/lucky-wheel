@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>럭키 룰렛</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+    body { background-color: #0f172a; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: env(safe-area-inset-top, 20px) 16px env(safe-area-inset-bottom, 20px) 16px; }
+
+    /* 메인 상단 바 (설정, 기록 버튼) */
+    header { width: 100%; display: flex; justify-content: flex-end; align-items: center; padding: 10px 4px; gap: 16px; }
+    .btn-icon { background: none; border: none; font-size: 26px; cursor: pointer; opacity: 0.8; transition: transform 0.2s; }
+    .btn-icon:active { transform: scale(0.9); }
+
+    /* 룰렛 컨테이너 */
+    .wheel-area { position: relative; width: 92vw; max-width: 390px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+    canvas#wheelCanvas { width: 100%; height: 100%; border-radius: 50%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .pointer { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); width: 32px; height: 38px; z-index: 10; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
+    .pointer::before { content: ''; position: absolute; top: 0; left: 0; width: 0; height: 0; border-left: 16px solid transparent; border-right: 16px solid transparent; border-top: 36px solid #ef4444; }
+    .wheel-center-cap { position: absolute; width: 46px; height: 46px; background: radial-gradient(circle, #f8fafc, #cbd5e1); border-radius: 50%; border: 3px solid #334155; box-shadow: 0 4px 10px rgba(0,0,0,0.4); z-index: 5; }
+
+    /* 컨트롤 버튼 */
+    .control-area { width: 100%; display: flex; justify-content: center; padding-bottom: 20px; }
+    .btn-spin { width: 80%; max-width: 320px; height: 60px; background: linear-gradient(135deg, #f59e0b, #d97706); color: #ffffff; border: none; border-radius: 30px; font-size: 22px; font-weight: bold; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 24px rgba(217, 119, 6, 0.4); transition: transform 0.1s, opacity 0.2s; }
+    .btn-spin:active { transform: scale(0.96); }
+    .btn-spin:disabled { background: #475569; box-shadow: none; opacity: 0.6; cursor: not-allowed; }
+
+    /* 당첨 팝업 모달 */
+    .modal-winner { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    .modal-winner.active { opacity: 1; pointer-events: auto; }
+    .winner-card { background: #1e293b; border: 2px solid #f59e0b; border-radius: 20px; padding: 30px 24px; text-align: center; width: 85%; max-width: 320px; transform: scale(0.8); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .modal-winner.active .winner-card { transform: scale(1); }
+    .winner-subtitle { font-size: 15px; color: #94a3b8; margin-bottom: 8px; }
+    .winner-name { font-size: 32px; font-weight: 800; color: #fbbf24; margin-bottom: 24px; word-break: break-all; }
+    .btn-confirm { width: 100%; height: 48px; background: #f59e0b; border: none; border-radius: 24px; font-size: 17px; font-weight: bold; color: #ffffff; cursor: pointer; }
+
+    /* 패널 모달 공통 */
+    .modal-panel { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #0f172a; z-index: 90; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.3s ease-in-out; padding: env(safe-area-inset-top, 20px) 16px env(safe-area-inset-bottom, 20px) 16px; }
+    .modal-panel.active { transform: translateY(0); }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 16px 0; border-bottom: 1px solid #334155; }
+    .panel-header h2 { font-size: 18px; font-weight: 700; text-align: center; flex: 1; }
+    .btn-nav { background: #334155; color: #f8fafc; border: 1px solid #475569; border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.2s, transform 0.1s; }
+    .btn-nav:active { transform: scale(0.95); background: #475569; }
+
+    .panel-body { flex: 1; overflow-y: auto; padding: 16px 0; }
+    .panel-footer { padding: 12px 0; }
+    .panel-group { background: #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .panel-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
+    
+    /* 토글 스위치 */
+    .toggle-wrap { display: flex; background: #334155; border-radius: 10px; padding: 5px; }
+    .toggle-opt { flex: 1; padding: 14px 12px; border-radius: 8px; text-align: center; font-size: 16px; font-weight: 800; color: #94a3b8; cursor: pointer; transition: background 0.3s, color 0.3s, transform 0.1s; }
+    .toggle-opt:active { transform: scale(0.97); }
+    #modePlanned.selected { background: #93c5fd; color: #1e3a8a; }
+    #modeRandom.selected { background: #f9a8d4; color: #831843; }
+
+    /* 인원수 및 명단 리스트 */
+    .slider-row { display: flex; align-items: center; gap: 12px; font-size: 15px; }
+    .slider-row input[type="range"] { flex: 1; accent-color: #f59e0b; }
+    .item-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .item-row { display: flex; align-items: center; gap: 10px; }
+    .btn-badge { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #64748b; background: #334155; color: #94a3b8; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+    .btn-badge.active { background: #f59e0b; border-color: #f59e0b; color: #ffffff; }
+    .item-input { flex: 1; height: 44px; background: #334155; border: 1px solid #475569; border-radius: 8px; padding: 0 12px; color: #ffffff; font-size: 16px; outline: none; }
+    .item-input:focus { border-color: #f59e0b; }
+
+    /* 설정 액션 버튼 */
+    .reset-btn-group { display: flex; gap: 12px; margin-top: 15px; }
+    .btn-small { flex: 1; padding: 14px 10px; border-radius: 10px; border: none; font-size: 15px; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
+    .btn-small:active { transform: scale(0.95); }
+    #resetNextOrderBtn { background: #bbf7d0; color: #14532d; }
+    #clearAllBadgesBtn { background: #fde047; color: #713f12; }
+    .btn-save { width: 100%; height: 54px; background: #f59e0b; border: none; border-radius: 27px; color: #ffffff; font-size: 18px; font-weight: bold; cursor: pointer; }
+
+    /* 대기 명단 개별 확정/삭제 스타일 */
+    .event-input-box { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .event-input-box input { flex: 1; height: 42px; background: #0f172a; border: 1px solid #475569; border-radius: 8px; padding: 0 12px; color: #ffffff; font-size: 14px; outline: none; }
+    .event-input-box input:focus { border-color: #10b981; }
+
+    .record-item { display: flex; justify-content: space-between; align-items: center; background: #334155; padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; }
+    .record-info { display: flex; align-items: center; gap: 8px; flex: 1; overflow: hidden; }
+    .record-time { color: #94a3b8; font-size: 12px; flex-shrink: 0; }
+    .record-name { font-weight: bold; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    .record-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .btn-confirm-sm { background: #10b981; color: #ffffff; border: none; border-radius: 6px; padding: 8px 12px; font-weight: bold; font-size: 13px; cursor: pointer; }
+    .btn-confirm-sm:active { background: #059669; transform: scale(0.95); }
+    .btn-del-sm { background: #ef4444; color: #ffffff; border: none; border-radius: 6px; padding: 8px 10px; font-weight: bold; font-size: 13px; cursor: pointer; }
+    .btn-del-sm:active { background: #dc2626; transform: scale(0.95); }
+
+    .temp-batch-btns { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-batch { flex: 1; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; border: 1px solid transparent; }
+    .btn-batch-confirm { background: #065f46; color: #a7f3d0; border-color: #059669; }
+    .btn-batch-clear { background: #7f1d1d; color: #fecaca; border-color: #dc2626; }
+
+    /* 아코디언 확정 기록 폴더 */
+    .acc-date-group { margin-bottom: 12px; border: 1px solid #475569; border-radius: 8px; overflow: hidden; }
+    .acc-date-header { background: #1e293b; padding: 12px; font-weight: bold; font-size: 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: 1px solid #475569; }
+    .acc-date-body { display: none; background: #0f172a; padding: 10px; }
+    .acc-date-body.open { display: block; }
+    .acc-event-group { background: #334155; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
+    .acc-event-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #fbbf24; }
+    .acc-winner-list { font-size: 14px; color: #cbd5e1; line-height: 1.6; padding-left: 8px; }
+
+    /* Confetti Canvas */
+    canvas#confettiCanvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 150; }
+  </style>
+</head>
+<body>
+
+  <!-- 메인 상단 헤더 -->
+  <header>
+    <button class="btn-icon" id="openHistoryBtn" aria-label="기록">📋</button>
+    <button class="btn-icon" id="openSettingsBtn" aria-label="설정">⚙️</button>
+  </header>
+
+  <!-- 룰렛 영역 -->
+  <div class="wheel-area">
+    <div class="pointer"></div>
+    <div class="wheel-center-cap"></div>
+    <canvas id="wheelCanvas" width="800" height="800"></canvas>
+  </div>
+
+  <!-- 컨트롤 버튼 -->
+  <div class="control-area">
+    <button class="btn-spin" id="spinBtn">돌리기</button>
+  </div>
+
+  <!-- 당첨 알림 모달 -->
+  <div class="modal-winner" id="winnerModal">
+    <div class="winner-card">
+      <div class="winner-subtitle">축하합니다! 당첨자</div>
+      <div class="winner-name" id="winnerNameDisplay">-</div>
+      <button class="btn-confirm" id="confirmWinnerBtn">확인</button>
+    </div>
+  </div>
+
+  <!-- 1. 설정 패널 모달 -->
+  <div class="modal-panel" id="settingsModal">
+    <div class="panel-header">
+      <button class="btn-nav" id="settingsToWheelBtn">🎡 룰렛</button>
+      <h2>룰렛 설정</h2>
+      <button class="btn-nav" id="settingsToHistoryBtn">📋 기록</button>
+    </div>
+    <div class="panel-body">
+      <div class="panel-group">
+        <div class="panel-title">추첨 방식</div>
+        <div class="toggle-wrap">
+          <div class="toggle-opt selected" id="modePlanned">순차 계획 모드</div>
+          <div class="toggle-opt" id="modeRandom">운에 맡기기 (랜덤)</div>
+        </div>
+      </div>
+      <div class="panel-group">
+        <div class="panel-title"><span>인원수 (칸 수)</span><span id="itemCountLabel" style="color:#f59e0b;">8명</span></div>
+        <div class="slider-row">
+          <span>2</span><input type="range" id="itemCountSlider" min="2" max="20" value="8" /><span>20</span>
+        </div>
+      </div>
+      <div class="panel-group">
+        <div class="panel-title">명단 및 당첨 순번</div>
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 12px; line-height: 1.4;">좌측 원형 버튼을 누르면 당첨 순서가 부여됩니다.</p>
+        <div class="item-list" id="itemList"></div>
+        <div class="reset-btn-group">
+          <button class="btn-small" id="resetNextOrderBtn">당첨 리셋</button>
+          <button class="btn-small" id="clearAllBadgesBtn">순번 해제</button>
+        </div>
+      </div>
+      <div class="panel-group">
+        <div class="panel-title"><span>회전 시간</span><span id="spinDurationLabel" style="color:#f59e0b;">3초</span></div>
+        <div class="slider-row">
+          <span>1초</span><input type="range" id="spinDurationSlider" min="1" max="8" value="3" /><span>8초</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel-footer">
+      <button class="btn-save" id="saveSettingsBtn">저장하고 닫기</button>
+    </div>
+  </div>
+
+  <!-- 2. 기록 관리 패널 모달 -->
+  <div class="modal-panel" id="historyModal">
+    <div class="panel-header">
+      <button class="btn-nav" id="historyToWheelBtn">🎡 룰렛</button>
+      <h2>당첨 기록 관리</h2>
+      <button class="btn-nav" id="historyToSettingsBtn">⚙️ 설정</button>
+    </div>
+    <div class="panel-body">
+      
+      <!-- 대기(미확정) 명단 섹션 -->
+      <div class="panel-group">
+        <div class="panel-title">
+          <span>대기 명단 (테스트/실당첨 구분)</span>
+        </div>
+        <div class="event-input-box">
+          <input type="text" id="eventNameInput" placeholder="저장할 이벤트명 (예: 1등 추첨)" />
+        </div>
+        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">
+          실제 당첨자는 <b>[✓ 확정]</b>을 눌러 바로 저장하고, 테스트는 <b>[✕ 삭제]</b>로 버리세요.
+        </p>
+        
+        <!-- 대기 명단 아이템 리스트 -->
+        <div id="tempListArea"></div>
+
+        <div class="temp-batch-btns">
+          <button class="btn-batch btn-batch-confirm" id="confirmAllTempBtn">대기 명단 모두 확정</button>
+          <button class="btn-batch btn-batch-clear" id="clearTempBtn">대기 명단 전체 삭제</button>
+        </div>
+      </div>
+
+      <!-- 영구 저장된 확정 기록 섹션 -->
+      <div class="panel-group">
+        <div class="panel-title">
+          <span>확정된 기록 목록</span>
+          <button id="toggleAllBtn" style="background:none; border:none; color:#f59e0b; font-weight:bold; cursor:pointer;">전체 펼치기</button>
+        </div>
+        <div id="savedRecordsArea"></div>
+        
+        <button id="clearAllSavedBtn" style="width:100%; padding:10px; background:transparent; border:1px solid #64748b; color:#94a3b8; border-radius:8px; font-size:12px; margin-top:16px; cursor:pointer;">
+          확정 기록 전체 영구 삭제 (초기화)
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <canvas id="confettiCanvas"></canvas>
+
+  <script>
+    const PALETTE = ["#ef4444", "#f97316", "#f59e0b", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e", "#14b8a6", "#84cc16", "#eab308", "#a855f7", "#d946ef", "#0284c7", "#059669", "#65a30d", "#ea580c", "#4f46e5"];
+
+    let state = {
+      mode: 'planned', count: 8, duration: 3, currentTurnIndex: 1,
+      items: Array.from({length: 8}, (_, i) => ({ name: `참가자 ${i+1}`, order: null }))
+    };
+    
+    let tempHistory = [];
+    let savedHistory = [];
+
+    const savedData = localStorage.getItem('ROULETTE_DATA');
+    if (savedData) try { state = JSON.parse(savedData); } catch(e) {}
+    
+    const savedTemp = localStorage.getItem('ROULETTE_TEMP');
+    if (savedTemp) try { tempHistory = JSON.parse(savedTemp); } catch(e) {}
+    
+    const savedRecs = localStorage.getItem('ROULETTE_RECORDS');
+    if (savedRecs) try { savedHistory = JSON.parse(savedRecs); } catch(e) {}
+
+    function saveState() {
+      localStorage.setItem('ROULETTE_DATA', JSON.stringify(state));
+      localStorage.setItem('ROULETTE_TEMP', JSON.stringify(tempHistory));
+      localStorage.setItem('ROULETTE_RECORDS', JSON.stringify(savedHistory));
+    }
+
+    // 날짜 및 요일 포맷 헬퍼 함수
+    function getDayOfWeek(dateStr) {
+      if (!dateStr) return '';
+      const clean = dateStr.slice(0, 10);
+      const parts = clean.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        const dt = new Date(y, m, d);
+        if (!isNaN(dt.getTime())) {
+          const days = ['일', '월', '화', '수', '목', '금', '토'];
+          return days[dt.getDay()];
+        }
+      }
+      return '';
+    }
+
+    function formatDateWithDay(dateStr) {
+      if (!dateStr) return '';
+      const clean = dateStr.slice(0, 10);
+      const day = getDayOfWeek(clean);
+      return day ? `${clean} (${day})` : dateStr;
+    }
+
+    // 오디오 컨텍스트
+    let audioCtx = null;
+    function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    function playFanfareSound() {
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+      function playNote(freq, time, dur, type, vol) {
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.type = type; osc.frequency.setValueAtTime(freq, time);
+        gain.gain.setValueAtTime(0, time); gain.gain.linearRampToValueAtTime(vol, time + 0.05); gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+        osc.connect(gain); gain.connect(audioCtx.destination); osc.start(time); osc.stop(time + dur);
+      }
+      [{f: 392.00, t:0.0, d:0.15}, {f: 523.25, t:0.15, d:0.15}, {f: 659.25, t:0.30, d:0.15}, {f: 783.99, t:0.45, d:0.90}].forEach(n => {
+        playNote(n.f, now+n.t, n.d, 'square', 0.15); playNote(n.f, now+n.t, n.d, 'sawtooth', 0.15);
+      });
+      playNote(523.25, now+0.45, 0.90, 'square', 0.15); playNote(1046.50, now+0.45, 0.90, 'sawtooth', 0.1);
+      
+      const bSize = audioCtx.sampleRate * 1.5; const buf = audioCtx.createBuffer(1, bSize, audioCtx.sampleRate);
+      const data = buf.getChannelData(0); for(let i=0; i<bSize; i++) data[i] = Math.random()*2-1;
+      const noise = audioCtx.createBufferSource(); noise.buffer = buf;
+      const filter = audioCtx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 2000;
+      const nGain = audioCtx.createGain(); nGain.gain.setValueAtTime(0, now+0.45); nGain.gain.linearRampToValueAtTime(0.4, now+0.5); nGain.gain.exponentialRampToValueAtTime(0.001, now+1.2);
+      noise.connect(filter); filter.connect(nGain); nGain.connect(audioCtx.destination); noise.start(now+0.45);
+    }
+
+    // 룰렛 캔버스
+    const wheelCanvas = document.getElementById('wheelCanvas');
+    const ctx = wheelCanvas.getContext('2d');
+    let currentAngle = 0; let isSpinning = false;
+
+    function drawWheel() {
+      const num = state.count; const arc = (2 * Math.PI) / num;
+      const cx = wheelCanvas.width / 2; const cy = wheelCanvas.height / 2; const radius = cx - 10;
+      ctx.clearRect(0, 0, wheelCanvas.width, wheelCanvas.height);
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(currentAngle);
+      for (let i = 0; i < num; i++) {
+        const angle = i * arc;
+        ctx.beginPath(); ctx.fillStyle = PALETTE[i % PALETTE.length];
+        ctx.moveTo(0, 0); ctx.arc(0, 0, radius, angle, angle + arc); ctx.lineTo(0, 0); ctx.fill();
+        ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.save(); ctx.rotate(angle + arc / 2); ctx.textAlign = "right"; ctx.fillStyle = "#ffffff"; ctx.font = "bold 28px sans-serif";
+        ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 4;
+        ctx.fillText(state.items[i]?.name || `칸 ${i+1}`, radius - 30, 10); ctx.restore();
+      }
+      ctx.restore();
+    }
+
+    function spinWheel() {
+      if (isSpinning) return; initAudio();
+      const num = state.count; const arc = (2 * Math.PI) / num;
+      let targetIndex = -1;
+      if (state.mode === 'planned') {
+        targetIndex = state.items.findIndex(it => it && it.order === state.currentTurnIndex);
+        if (targetIndex === -1) {
+          const assigned = state.items.map((it, idx) => ({ ...it, idx })).filter(it => it.order !== null).sort((a, b) => a.order - b.order);
+          if (assigned.length > 0) { targetIndex = assigned[0].idx; state.currentTurnIndex = assigned[0].order; } 
+          else { targetIndex = Math.floor(Math.random() * num); }
+        }
+      } else { targetIndex = Math.floor(Math.random() * num); }
+
+      const targetAngle = targetIndex * arc + arc / 2; const topAngle = (3 * Math.PI) / 2;
+      let diff = (topAngle - targetAngle - (currentAngle % (2 * Math.PI))) % (2 * Math.PI); if (diff < 0) diff += 2 * Math.PI;
+      const totalRotation = (2 * Math.PI * 7) + diff;
+      const startAngle = currentAngle; const finalAngle = startAngle + totalRotation;
+      const durationMs = state.duration * 1000; let startTime = null;
+      isSpinning = true; document.getElementById('spinBtn').disabled = true;
+
+      function animate(time) {
+        if (!startTime) startTime = time; const prog = Math.min((time - startTime) / durationMs, 1);
+        currentAngle = startAngle + totalRotation * (1 - Math.pow(1 - prog, 4));
+        drawWheel();
+        if (prog < 1) requestAnimationFrame(animate);
+        else { currentAngle = finalAngle; drawWheel(); isSpinning = false; document.getElementById('spinBtn').disabled = false; onSpinEnd(targetIndex); }
+      }
+      requestAnimationFrame(animate);
+    }
+
+    function onSpinEnd(winningIndex) {
+      const winnerName = state.items[winningIndex]?.name || `칸 ${winningIndex + 1}`;
+      document.getElementById('winnerNameDisplay').innerText = winnerName;
+      
+      if (state.mode === 'planned') {
+        const assigned = state.items.filter(it => it.order !== null).map(it => it.order).sort((a,b) => a-b);
+        const next = assigned.filter(o => o > state.currentTurnIndex);
+        state.currentTurnIndex = next.length > 0 ? next[0] : (assigned.length > 0 ? assigned[0] : 1);
+      }
+
+      const now = new Date();
+      tempHistory.push({
+        id: Date.now(),
+        name: winnerName,
+        time: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
+        date: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
+      });
+      saveState();
+
+      playFanfareSound(); startConfetti();
+      document.getElementById('winnerModal').classList.add('active');
+    }
+
+    // 초고화질 네온 3D 폭죽 시스템
+    const confettiCanvas = document.getElementById('confettiCanvas');
+    const cCtx = confettiCanvas.getContext('2d');
+    let confettiParticles = [];
+    let confettiAnim = null;
+
+    function resizeConfetti() {
+      confettiCanvas.width = window.innerWidth;
+      confettiCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeConfetti);
+    resizeConfetti();
+
+    const NEON_PALETTE = ["#ff0055", "#00ffff", "#ffea00", "#ff00ea", "#00ff66", "#ffffff", "#ff7700", "#38bdf8", "#f43f5e", "#a855f7"];
+
+    function startConfetti() {
+      const w = confettiCanvas.width;
+      const h = confettiCanvas.height;
+      const particleCount = 220;
+
+      confettiParticles = Array.from({ length: particleCount }, () => {
+        const isLeft = Math.random() < 0.5;
+        return {
+          x: isLeft ? w * 0.2 + (Math.random() * w * 0.1) : w * 0.8 - (Math.random() * w * 0.1),
+          y: h * 0.65,
+          w: Math.random() * 8 + 6,
+          h: Math.random() * 14 + 8,
+          color: NEON_PALETTE[Math.floor(Math.random() * NEON_PALETTE.length)],
+          vx: (isLeft ? 1 : -1) * (Math.random() * 9 + 4) + (Math.random() - 0.5) * 8,
+          vy: -(Math.random() * 18 + 13),
+          gravity: 0.42,
+          rotation: Math.random() * 360,
+          rotSpeed: (Math.random() - 0.5) * 12,
+          tiltAngle: Math.random() * Math.PI,
+          tiltSpeed: Math.random() * 0.12 + 0.05,
+          opacity: 1
+        };
+      });
+
+      const startTime = performance.now();
+      const maxDuration = 4500;
+
+      function render(now) {
+        cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        const elapsed = now - startTime;
+        let alive = false;
+
+        confettiParticles.forEach(p => {
+          p.x += p.vx; p.y += p.vy; p.vy += p.gravity; p.vx *= 0.98;
+          p.rotation += p.rotSpeed; p.tiltAngle += p.tiltSpeed;
+
+          if (elapsed > maxDuration - 600) {
+            p.opacity = Math.max(0, (maxDuration - elapsed) / 600);
+          }
+
+          if (p.y < confettiCanvas.height + 50 && p.opacity > 0) {
+            alive = true;
+            cCtx.save();
+            cCtx.translate(p.x, p.y);
+            cCtx.rotate((p.rotation * Math.PI) / 180);
+            cCtx.scale(1, Math.cos(p.tiltAngle));
+            cCtx.fillStyle = p.color;
+            cCtx.globalAlpha = p.opacity;
+            cCtx.shadowColor = p.color;
+            cCtx.shadowBlur = 4;
+            cCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            cCtx.restore();
+          }
+        });
+
+        if (alive && elapsed < maxDuration) {
+          confettiAnim = requestAnimationFrame(render);
+        } else {
+          cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        }
+      }
+
+      cancelAnimationFrame(confettiAnim);
+      confettiAnim = requestAnimationFrame(render);
+    }
+
+    // 설정 리스트 렌더링
+    function renderSettingsList() {
+      const listEl = document.getElementById('itemList'); listEl.innerHTML = '';
+      for (let i = 0; i < state.count; i++) {
+        if (!state.items[i]) state.items[i] = { name: `참가자 ${i+1}`, order: null };
+        const it = state.items[i]; const row = document.createElement('div'); row.className = 'item-row';
+        row.innerHTML = `<button class="btn-badge ${it.order ? 'active' : ''}">${it.order || '○'}</button>
+                         <input type="text" class="item-input" value="${it.name}" placeholder="이름 ${i+1}">`;
+        row.querySelector('.btn-badge').onclick = () => {
+          if (it.order !== null) { const rem = it.order; it.order = null; state.items.forEach(x => { if(x.order && x.order > rem) x.order--; }); } 
+          else { let mx = 0; state.items.forEach(x => { if(x.order && x.order > mx) mx = x.order; }); it.order = mx + 1; }
+          renderSettingsList();
+        };
+        row.querySelector('input').oninput = (e) => { it.name = e.target.value; };
+        listEl.appendChild(row);
+      }
+    }
+
+    // --- 내비게이션 및 모달 제어 ---
+    const settingsModal = document.getElementById('settingsModal');
+    const historyModal = document.getElementById('historyModal');
+
+    document.getElementById('openSettingsBtn').onclick = () => { renderSettingsList(); settingsModal.classList.add('active'); };
+    document.getElementById('openHistoryBtn').onclick = () => { renderHistory(); historyModal.classList.add('active'); };
+
+    document.getElementById('settingsToWheelBtn').onclick = () => { saveState(); settingsModal.classList.remove('active'); drawWheel(); };
+    document.getElementById('settingsToHistoryBtn').onclick = () => { saveState(); settingsModal.classList.remove('active'); renderHistory(); historyModal.classList.add('active'); };
+    document.getElementById('saveSettingsBtn').onclick = () => { saveState(); settingsModal.classList.remove('active'); drawWheel(); };
+
+    document.getElementById('historyToWheelBtn').onclick = () => { historyModal.classList.remove('active'); drawWheel(); };
+    document.getElementById('historyToSettingsBtn').onclick = () => { historyModal.classList.remove('active'); renderSettingsList(); settingsModal.classList.add('active'); };
+
+    document.getElementById('spinBtn').onclick = spinWheel;
+    document.getElementById('confirmWinnerBtn').onclick = () => document.getElementById('winnerModal').classList.remove('active');
+
+    document.getElementById('modePlanned').onclick = () => { state.mode = 'planned'; updateModeUI(); };
+    document.getElementById('modeRandom').onclick = () => { state.mode = 'random'; updateModeUI(); };
+    function updateModeUI() {
+      document.getElementById('modePlanned').classList.toggle('selected', state.mode === 'planned');
+      document.getElementById('modeRandom').classList.toggle('selected', state.mode === 'random');
+    }
+    updateModeUI();
+
+    document.getElementById('itemCountSlider').oninput = (e) => { state.count = parseInt(e.target.value); document.getElementById('itemCountLabel').innerText = `${state.count}명`; renderSettingsList(); drawWheel(); };
+    document.getElementById('spinDurationSlider').oninput = (e) => { state.duration = parseInt(e.target.value); document.getElementById('spinDurationLabel').innerText = `${state.duration}초`; };
+    document.getElementById('resetNextOrderBtn').onclick = () => { state.currentTurnIndex = 1; alert("당첨 순서가 1번으로 리셋되었습니다."); };
+    document.getElementById('clearAllBadgesBtn').onclick = () => { if(confirm("순번 지정을 모두 해제할까요?")) { state.items.forEach(it => it.order = null); state.currentTurnIndex = 1; renderSettingsList(); } };
+
+    // --- 개별 당첨자 확정 로직 ---
+    function confirmSingleWinner(rec) {
+      const evName = document.getElementById('eventNameInput').value.trim() || '일반 추첨';
+      
+      let targetEvent = savedHistory.find(ev => ev.date === rec.date && ev.eventName === evName);
+      if (targetEvent) {
+        targetEvent.winners.push(rec.name);
+      } else {
+        savedHistory.push({
+          id: Date.now(),
+          date: rec.date,
+          eventName: evName,
+          winners: [rec.name]
+        });
+      }
+
+      tempHistory = tempHistory.filter(t => t.id !== rec.id);
+      saveState();
+      renderHistory();
+    }
+
+    // --- 기록 화면 렌더링 ---
+    function renderHistory() {
+      // 1. 대기 명단 렌더링
+      const tempArea = document.getElementById('tempListArea');
+      tempArea.innerHTML = tempHistory.length === 0 ? '<div style="color:#94a3b8; font-size:14px; text-align:center; padding:12px;">대기 중인 추첨 기록이 없습니다.</div>' : '';
+      
+      tempHistory.forEach(rec => {
+        const div = document.createElement('div');
+        div.className = 'record-item';
+        div.innerHTML = `
+          <div class="record-info">
+            <span class="record-time">${rec.time}</span>
+            <span class="record-name">${rec.name}</span>
+          </div>
+          <div class="record-actions">
+            <button class="btn-confirm-sm">✓ 확정</button>
+            <button class="btn-del-sm">✕ 삭제</button>
+          </div>
+        `;
+
+        div.querySelector('.btn-confirm-sm').onclick = () => confirmSingleWinner(rec);
+        div.querySelector('.btn-del-sm').onclick = () => {
+          tempHistory = tempHistory.filter(t => t.id !== rec.id);
+          saveState();
+          renderHistory();
+        };
+
+        tempArea.appendChild(div);
+      });
+
+      // 2. 확정된 영구 기록 렌더링 (요일 표시 및 날짜 수정 기능 탑재)
+      const savedArea = document.getElementById('savedRecordsArea');
+      savedArea.innerHTML = savedHistory.length === 0 ? '<div style="color:#94a3b8; font-size:14px; text-align:center; padding:12px;">확정된 기록이 없습니다.</div>' : '';
+      
+      const grouped = {};
+      savedHistory.forEach(ev => { if(!grouped[ev.date]) grouped[ev.date]=[]; grouped[ev.date].push(ev); });
+
+      Object.keys(grouped).sort((a,b) => b.localeCompare(a)).forEach(dateKey => {
+        const dateDiv = document.createElement('div'); dateDiv.className = 'acc-date-group';
+        const isAllOpen = document.getElementById('toggleAllBtn').innerText === '모두 접기';
+        
+        // 날짜에 요일 자동 포맷팅 적용 및 날짜 수정 버튼 배치
+        dateDiv.innerHTML = `
+          <div class="acc-date-header">
+            <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">📅 ${formatDateWithDay(dateKey)}</span>
+            <div style="display:flex; gap:10px; align-items:center; flex-shrink:0;">
+              <span class="btn-edit-date" style="color:#38bdf8; cursor:pointer; font-size:13px; font-weight:normal;">✏️ 날짜 수정</span>
+              <button class="btn-del-sm" style="background:transparent; color:#ef4444; padding:0; font-size:13px;">삭제</button>
+            </div>
+          </div>
+          <div class="acc-date-body ${isAllOpen ? 'open' : ''}"></div>
+        `;
+        
+        // 날짜 폴더 열기/닫기 (버튼 터치 시 제외)
+        dateDiv.querySelector('.acc-date-header').onclick = (e) => {
+          if (e.target.closest('.btn-edit-date') || e.target.closest('button')) return;
+          dateDiv.querySelector('.acc-date-body').classList.toggle('open');
+        };
+
+        // 날짜 폴더 전체 날짜 수정
+        dateDiv.querySelector('.btn-edit-date').onclick = (e) => {
+          e.stopPropagation();
+          const cleanDate = dateKey.slice(0, 10);
+          const newDate = prompt("수정할 날짜를 입력하세요 (예: YYYY-MM-DD):", cleanDate);
+          if (newDate !== null) {
+            const trimmed = newDate.trim().slice(0, 10);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+              savedHistory.forEach(h => {
+                if (h.date === dateKey) {
+                  h.date = trimmed;
+                }
+              });
+              saveState();
+              renderHistory();
+            } else {
+              alert("날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형태로 입력해 주세요 (예: 2026-09-10).");
+            }
+          }
+        };
+
+        // 날짜 폴더 전체 삭제
+        dateDiv.querySelector('button').onclick = (e) => {
+          e.stopPropagation();
+          if(confirm(`${formatDateWithDay(dateKey)}의 모든 확정 기록을 삭제할까요?`)) { 
+            savedHistory = savedHistory.filter(h => h.date !== dateKey); 
+            saveState(); 
+            renderHistory(); 
+          }
+        };
+
+        const bodyDiv = dateDiv.querySelector('.acc-date-body');
+        grouped[dateKey].forEach(ev => {
+          const evDiv = document.createElement('div'); evDiv.className = 'acc-event-group';
+          evDiv.innerHTML = `
+            <div class="acc-event-header">
+              <span class="ev-name-text" style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-right:8px;">🏆 ${ev.eventName}</span>
+              <div style="display:flex; gap:10px; align-items:center; flex-shrink:0;">
+                <span class="btn-edit-ev" style="color:#38bdf8; cursor:pointer; font-size:13px; font-weight:normal;">✏️ 이름</span>
+                <span class="btn-edit-ev-date" style="color:#a78bfa; cursor:pointer; font-size:13px; font-weight:normal;">📅 날짜</span>
+                <span class="del-ev" style="color:#ef4444; cursor:pointer; font-size:14px;">✕</span>
+              </div>
+            </div>
+            <div class="acc-winner-list">${ev.winners.map((w,i) => `${i+1}. ${w}`).join('<br>')}</div>
+          `;
+
+          // 개별 이벤트명 수정
+          evDiv.querySelector('.btn-edit-ev').onclick = () => {
+            const newName = prompt("수정할 이벤트명을 입력하세요:", ev.eventName);
+            if (newName !== null) {
+              const trimmed = newName.trim();
+              if (trimmed.length > 0) {
+                ev.eventName = trimmed;
+                saveState();
+                renderHistory();
+              } else {
+                alert("이벤트명을 1글자 이상 입력해주세요.");
+              }
+            }
+          };
+
+          // 개별 이벤트 날짜 변경 (다른 날짜 폴더로 이동)
+          evDiv.querySelector('.btn-edit-ev-date').onclick = () => {
+            const cleanDate = ev.date ? ev.date.slice(0, 10) : '';
+            const newDate = prompt(`[${ev.eventName}]의 날짜를 변경하세요 (예: YYYY-MM-DD):`, cleanDate);
+            if (newDate !== null) {
+              const trimmed = newDate.trim().slice(0, 10);
+              if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                ev.date = trimmed;
+                saveState();
+                renderHistory();
+              } else {
+                alert("날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형태로 입력해 주세요 (예: 2026-09-10).");
+              }
+            }
+          };
+
+          // 개별 이벤트 삭제
+          evDiv.querySelector('.del-ev').onclick = () => {
+            if(confirm(`[${ev.eventName}] 기록을 삭제할까요?`)) {
+              savedHistory = savedHistory.filter(h => h.id !== ev.id);
+              saveState();
+              renderHistory();
+            }
+          };
+
+          bodyDiv.appendChild(evDiv);
+        });
+        savedArea.appendChild(dateDiv);
+      });
+    }
+
+    // 대기 명단 일괄 확정
+    document.getElementById('confirmAllTempBtn').onclick = () => {
+      if (tempHistory.length === 0) return alert("확정할 대기 명단이 없습니다.");
+      const evName = document.getElementById('eventNameInput').value.trim() || '일반 추첨';
+      
+      tempHistory.forEach(rec => {
+        let targetEvent = savedHistory.find(ev => ev.date === rec.date && ev.eventName === evName);
+        if (targetEvent) {
+          targetEvent.winners.push(rec.name);
+        } else {
+          savedHistory.push({
+            id: Date.now() + Math.random(),
+            date: rec.date,
+            eventName: evName,
+            winners: [rec.name]
+          });
+        }
+      });
+      tempHistory = [];
+      saveState();
+      renderHistory();
+      alert(`대기 명단이 [${evName}] 기록으로 확정되었습니다.`);
+    };
+
+    // 대기 명단 전체 삭제
+    document.getElementById('clearTempBtn').onclick = () => {
+      if(confirm("대기 명단을 모두 삭제할까요? (테스트 기록 비우기)")) { 
+        tempHistory = []; 
+        saveState(); 
+        renderHistory(); 
+      }
+    };
+
+    // 확정 기록 전체 펼치기/접기
+    document.getElementById('toggleAllBtn').onclick = (e) => {
+      const isOpening = e.target.innerText === '전체 펼치기';
+      e.target.innerText = isOpening ? '모두 접기' : '전체 펼치기';
+      document.querySelectorAll('.acc-date-body').forEach(el => el.classList.toggle('open', isOpening));
+    };
+
+    // 확정 기록 전체 영구 삭제
+    document.getElementById('clearAllSavedBtn').onclick = () => {
+      if(confirm("정말 모든 영구 확정 기록을 완전히 삭제하시겠습니까? (복구 불가)")) { 
+        savedHistory = []; 
+        saveState(); 
+        renderHistory(); 
+      }
+    };
+
+    if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{})); }
+
+    drawWheel();
+  </script>
+</body>
+</html>
