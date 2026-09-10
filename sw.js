@@ -1,5 +1,5 @@
 // 캐시 버전을 올릴 때마다 이 숫자나 텍스트를 바꿔주세요
-const CACHE_NAME = 'roulette-app-v7';
+const CACHE_NAME = 'roulette-app-v7.7';
 
 const ASSETS = [
   './',
