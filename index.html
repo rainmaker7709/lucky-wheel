@@ -66,7 +66,7 @@
     .item-row { display: flex; align-items: center; gap: 10px; }
     .btn-badge { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #64748b; background: #334155; color: #94a3b8; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
     .btn-badge.active { background: #f59e0b; border-color: #f59e0b; color: #ffffff; }
-    .item-input { flex: 1; height: 44px; background: #334155; border: 1px solid #475569; border-radius: 8px; padding: 0 12px; color: #ffffff; font-size: 16px; outline: none; }
+    .item-input { flex: 1; height: 44px; background: #334155; border: 1px solid #475569; border-radius: 8px; padding: 0 12px; color: #ffffff; font-size: 16px; outline: none; user-select: text; -webkit-user-select: text; }
     .item-input:focus { border-color: #f59e0b; }
 
     /* 설정 액션 버튼 */
@@ -79,7 +79,7 @@
 
     /* 대기 명단 개별 확정/삭제 스타일 */
     .event-input-box { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-    .event-input-box input { flex: 1; height: 42px; background: #0f172a; border: 1px solid #475569; border-radius: 8px; padding: 0 12px; color: #ffffff; font-size: 14px; outline: none; }
+    .event-input-box input { flex: 1; height: 42px; background: #0f172a; border: 1px solid #475569; border-radius: 8px; padding: 0 12px; color: #ffffff; font-size: 14px; outline: none; user-select: text; -webkit-user-select: text; }
     .event-input-box input:focus { border-color: #10b981; }
 
     .record-item { display: flex; justify-content: space-between; align-items: center; background: #334155; padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; }
@@ -151,8 +151,8 @@
       <div class="panel-group">
         <div class="panel-title">추첨 방식</div>
         <div class="toggle-wrap">
-          <div class="toggle-opt selected" id="modePlanned">순차 계획 모드</div>
-          <div class="toggle-opt" id="modeRandom">운에 맡기기 (랜덤)</div>
+          <div class="toggle-opt selected" id="modePlanned">순차 당첨</div>
+          <div class="toggle-opt" id="modeRandom">랜덤</div>
         </div>
       </div>
       <div class="panel-group">
@@ -163,7 +163,9 @@
       </div>
       <div class="panel-group">
         <div class="panel-title">명단 및 당첨 순번</div>
-        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 12px; line-height: 1.4;">좌측 원형 버튼을 누르면 당첨 순서가 부여됩니다.</p>
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 12px; line-height: 1.4;">
+          입력칸 터치 시 전체 선택되어 바로 수정할 수 있습니다.
+        </p>
         <div class="item-list" id="itemList"></div>
         <div class="reset-btn-group">
           <button class="btn-small" id="resetNextOrderBtn">당첨 리셋</button>
@@ -284,6 +286,31 @@
     // 오디오 컨텍스트
     let audioCtx = null;
     function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+
+    // 1. 회전 효과음: 바늘이 각 칸을 지날 때마다 발생하는 물리적인 틱(Tick) 라쳇 사운드
+    function playTickSound() {
+      if (!audioCtx) return;
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.exponentialRampToValueAtTime(100, now + 0.02);
+        
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start(now);
+        osc.stop(now + 0.025);
+      } catch(e) {}
+    }
+
+    // 2. 당첨 축하 팡파레 사운드
     function playFanfareSound() {
       if (!audioCtx) return;
       const now = audioCtx.currentTime;
@@ -328,6 +355,7 @@
       ctx.restore();
     }
 
+    // 룰렛 회전 물리 엔진 + 회전 효과음 결합
     function spinWheel() {
       if (isSpinning) return; initAudio();
       const num = state.count; const arc = (2 * Math.PI) / num;
@@ -346,11 +374,22 @@
       const totalRotation = (2 * Math.PI * 7) + diff;
       const startAngle = currentAngle; const finalAngle = startAngle + totalRotation;
       const durationMs = state.duration * 1000; let startTime = null;
+
+      let lastSector = Math.floor(currentAngle / arc);
+
       isSpinning = true; document.getElementById('spinBtn').disabled = true;
 
       function animate(time) {
         if (!startTime) startTime = time; const prog = Math.min((time - startTime) / durationMs, 1);
         currentAngle = startAngle + totalRotation * (1 - Math.pow(1 - prog, 4));
+
+        // 칸을 지날 때마다 속도에 비례하여 회전음 발생
+        const currentSector = Math.floor(currentAngle / arc);
+        if (currentSector !== lastSector) {
+          playTickSound();
+          lastSector = currentSector;
+        }
+
         drawWheel();
         if (prog < 1) requestAnimationFrame(animate);
         else { currentAngle = finalAngle; drawWheel(); isSpinning = false; document.getElementById('spinBtn').disabled = false; onSpinEnd(targetIndex); }
@@ -462,7 +501,7 @@
       confettiAnim = requestAnimationFrame(render);
     }
 
-    // 설정 리스트 렌더링
+    // 설정 리스트 렌더링 (입력칸 스마트 터치 선택 로직 탑재)
     function renderSettingsList() {
       const listEl = document.getElementById('itemList'); listEl.innerHTML = '';
       for (let i = 0; i < state.count; i++) {
@@ -470,12 +509,43 @@
         const it = state.items[i]; const row = document.createElement('div'); row.className = 'item-row';
         row.innerHTML = `<button class="btn-badge ${it.order ? 'active' : ''}">${it.order || '○'}</button>
                          <input type="text" class="item-input" value="${it.name}" placeholder="이름 ${i+1}">`;
+        
         row.querySelector('.btn-badge').onclick = () => {
           if (it.order !== null) { const rem = it.order; it.order = null; state.items.forEach(x => { if(x.order && x.order > rem) x.order--; }); } 
           else { let mx = 0; state.items.forEach(x => { if(x.order && x.order > mx) mx = x.order; }); it.order = mx + 1; }
           renderSettingsList();
         };
-        row.querySelector('input').oninput = (e) => { it.name = e.target.value; };
+
+        const inputEl = row.querySelector('input');
+        inputEl.oninput = (e) => { it.name = e.target.value; };
+
+        // 스마트 선택 처리: 첫 터치 시 전체 선택, 재터치 시 커서 이동
+        let justFocused = false;
+        inputEl.addEventListener('focus', function() {
+          justFocused = true;
+          setTimeout(() => {
+            this.select();
+          }, 10);
+        });
+        inputEl.addEventListener('mouseup', function(e) {
+          if (justFocused) {
+            e.preventDefault();
+            this.select();
+            justFocused = false;
+          }
+        });
+        inputEl.addEventListener('touchend', function(e) {
+          if (justFocused) {
+            setTimeout(() => {
+              this.select();
+              justFocused = false;
+            }, 30);
+          }
+        });
+        inputEl.addEventListener('blur', function() {
+          justFocused = false;
+        });
+
         listEl.appendChild(row);
       }
     }
@@ -561,7 +631,7 @@
         tempArea.appendChild(div);
       });
 
-      // 2. 확정된 영구 기록 렌더링 (요일 표시 및 날짜 수정 기능 탑재)
+      // 2. 확정된 영구 기록 렌더링
       const savedArea = document.getElementById('savedRecordsArea');
       savedArea.innerHTML = savedHistory.length === 0 ? '<div style="color:#94a3b8; font-size:14px; text-align:center; padding:12px;">확정된 기록이 없습니다.</div>' : '';
       
@@ -572,7 +642,6 @@
         const dateDiv = document.createElement('div'); dateDiv.className = 'acc-date-group';
         const isAllOpen = document.getElementById('toggleAllBtn').innerText === '모두 접기';
         
-        // 날짜에 요일 자동 포맷팅 적용 및 날짜 수정 버튼 배치
         dateDiv.innerHTML = `
           <div class="acc-date-header">
             <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">📅 ${formatDateWithDay(dateKey)}</span>
@@ -584,7 +653,6 @@
           <div class="acc-date-body ${isAllOpen ? 'open' : ''}"></div>
         `;
         
-        // 날짜 폴더 열기/닫기 (버튼 터치 시 제외)
         dateDiv.querySelector('.acc-date-header').onclick = (e) => {
           if (e.target.closest('.btn-edit-date') || e.target.closest('button')) return;
           dateDiv.querySelector('.acc-date-body').classList.toggle('open');
@@ -651,7 +719,7 @@
             }
           };
 
-          // 개별 이벤트 날짜 변경 (다른 날짜 폴더로 이동)
+          // 개별 이벤트 날짜 변경
           evDiv.querySelector('.btn-edit-ev-date').onclick = () => {
             const cleanDate = ev.date ? ev.date.slice(0, 10) : '';
             const newDate = prompt(`[${ev.eventName}]의 날짜를 변경하세요 (예: YYYY-MM-DD):`, cleanDate);
