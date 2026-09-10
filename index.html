@@ -11,59 +11,92 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
     
-    /* 화면 높이 동적 대응 (100vh 툴바 오버플로우 원천 차단) */
+    html, body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh; /* 주소창 변동에 실시간 반응하는 동적 뷰포트 */
+      overflow: hidden;
+      position: fixed; /* 브라우저 자체 스크롤 튕김 방지 */
+    }
+
     body { 
       background-color: #0f172a; 
       color: #ffffff; 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-      height: 100vh;
-      height: 100dvh; 
-      overflow: hidden; 
       display: flex; 
       flex-direction: column; 
       align-items: center; 
       justify-content: space-between; 
-      padding: env(safe-area-inset-top, 14px) 16px env(safe-area-inset-bottom, 14px) 16px; 
-      box-sizing: border-box;
+      padding: env(safe-area-inset-top, 10px) 16px env(safe-area-inset-bottom, 12px) 16px; 
     }
 
-    /* 메인 상단 바 (flex-shrink: 0 으로 크기 보존) */
-    header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 6px 4px; flex-shrink: 0; }
+    /* 메인 상단 바 */
+    header { 
+      width: 100%; 
+      max-width: 420px;
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      padding: 4px 0; 
+      flex-shrink: 0; 
+      height: 44px;
+    }
     .header-right { display: flex; align-items: center; gap: 16px; }
-    .btn-icon { background: none; border: none; font-size: 26px; cursor: pointer; opacity: 0.8; transition: transform 0.2s; }
-    .btn-icon:active { transform: scale(0.9); }
+    .btn-icon { background: none; border: none; font-size: 24px; cursor: pointer; opacity: 0.85; transition: transform 0.15s; }
+    .btn-icon:active { transform: scale(0.88); }
 
-    /* 룰렛 컨테이너: 화면 높이가 좁아져도 버튼을 밀어내지 않고 자동으로 알맞게 축소됨 */
+    /* 핵심 수정: 화면 세로(dvh)와 가로(vw) 중 작은 쪽에 맞춰 룰렛이 자동 축소됨 */
     .wheel-area { 
       position: relative; 
-      width: min(88vw, calc(100dvh - 200px), 360px); 
-      max-width: 360px; 
-      aspect-ratio: 1; 
+      width: min(84vw, calc(100dvh - 170px), 340px); 
+      height: min(84vw, calc(100dvh - 170px), 340px); 
+      aspect-ratio: 1 / 1; 
       display: flex; 
       align-items: center; 
       justify-content: center; 
       margin: auto 0; 
       flex-shrink: 1;
     }
-    canvas#wheelCanvas { width: 100%; height: 100%; border-radius: 50%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    canvas#wheelCanvas { width: 100%; height: 100%; border-radius: 50%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
     .pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 28px; height: 34px; z-index: 10; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); }
     .pointer::before { content: ''; position: absolute; top: 0; left: 0; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 32px solid #ef4444; }
-    .wheel-center-cap { position: absolute; width: 42px; height: 42px; background: radial-gradient(circle, #f8fafc, #cbd5e1); border-radius: 50%; border: 3px solid #334155; box-shadow: 0 4px 10px rgba(0,0,0,0.4); z-index: 5; }
+    .wheel-center-cap { position: absolute; width: 40px; height: 40px; background: radial-gradient(circle, #f8fafc, #cbd5e1); border-radius: 50%; border: 3px solid #334155; box-shadow: 0 4px 10px rgba(0,0,0,0.4); z-index: 5; }
 
-    /* 컨트롤 버튼 (화면 최하단에 항상 밀착 고정) */
-    .control-area { width: 100%; display: flex; justify-content: center; padding-bottom: 8px; flex-shrink: 0; }
-    .btn-spin { width: 80%; max-width: 300px; height: 54px; background: linear-gradient(135deg, #f59e0b, #d97706); color: #ffffff; border: none; border-radius: 28px; font-size: 20px; font-weight: bold; letter-spacing: 2px; cursor: pointer; box-shadow: 0 6px 20px rgba(217, 119, 6, 0.4); transition: transform 0.1s, opacity 0.2s; }
+    /* 컨트롤 버튼 (화면 하단에 항상 고정) */
+    .control-area { 
+      width: 100%; 
+      max-width: 420px;
+      display: flex; 
+      justify-content: center; 
+      padding-bottom: 6px; 
+      flex-shrink: 0; 
+    }
+    .btn-spin { 
+      width: 85%; 
+      max-width: 290px; 
+      height: 52px; 
+      background: linear-gradient(135deg, #f59e0b, #d97706); 
+      color: #ffffff; 
+      border: none; 
+      border-radius: 26px; 
+      font-size: 20px; 
+      font-weight: bold; 
+      letter-spacing: 2px; 
+      cursor: pointer; 
+      box-shadow: 0 6px 20px rgba(217, 119, 6, 0.4); 
+      transition: transform 0.1s, opacity 0.2s; 
+    }
     .btn-spin:active { transform: scale(0.96); }
     .btn-spin:disabled { background: #475569; box-shadow: none; opacity: 0.6; cursor: not-allowed; }
 
     /* 당첨 팝업 모달 */
-    .modal-winner { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    .modal-winner { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
     .modal-winner.active { opacity: 1; pointer-events: auto; }
-    .winner-card { background: #1e293b; border: 2px solid #f59e0b; border-radius: 20px; padding: 30px 24px; text-align: center; width: 85%; max-width: 320px; transform: scale(0.8); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .winner-card { background: #1e293b; border: 2px solid #f59e0b; border-radius: 20px; padding: 26px 20px; text-align: center; width: 85%; max-width: 310px; transform: scale(0.85); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     .modal-winner.active .winner-card { transform: scale(1); }
-    .winner-subtitle { font-size: 15px; color: #94a3b8; margin-bottom: 8px; }
-    .winner-name { font-size: 32px; font-weight: 800; color: #fbbf24; margin-bottom: 24px; word-break: break-all; }
-    .btn-confirm { width: 100%; height: 48px; background: #f59e0b; border: none; border-radius: 24px; font-size: 17px; font-weight: bold; color: #ffffff; cursor: pointer; }
+    .winner-subtitle { font-size: 14px; color: #94a3b8; margin-bottom: 6px; }
+    .winner-name { font-size: 30px; font-weight: 800; color: #fbbf24; margin-bottom: 20px; word-break: break-all; }
+    .btn-confirm { width: 100%; height: 46px; background: #f59e0b; border: none; border-radius: 23px; font-size: 16px; font-weight: bold; color: #ffffff; cursor: pointer; }
 
     /* 패널 모달 공통 */
     .modal-panel { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; background: #0f172a; z-index: 90; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.3s ease-in-out; padding: env(safe-area-inset-top, 20px) 16px env(safe-area-inset-bottom, 20px) 16px; box-sizing: border-box; }
@@ -78,9 +111,9 @@
     .panel-group { background: #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 16px; width: 100%; box-sizing: border-box; }
     .panel-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
     
-    /* 토글 스위치 */
+    /* 추첨 모드 토글 */
     .toggle-wrap { display: flex; background: #334155; border-radius: 10px; padding: 5px; }
-    .toggle-opt { flex: 1; padding: 14px 12px; border-radius: 8px; text-align: center; font-size: 16px; font-weight: 800; color: #94a3b8; cursor: pointer; transition: background 0.3s, color 0.3s, transform 0.1s; }
+    .toggle-opt { flex: 1; padding: 12px 10px; border-radius: 8px; text-align: center; font-size: 15px; font-weight: 800; color: #94a3b8; cursor: pointer; transition: background 0.3s, color 0.3s, transform 0.1s; }
     .toggle-opt:active { transform: scale(0.97); }
     #modePlanned.selected { background: #93c5fd; color: #1e3a8a; }
     #modeRandom.selected { background: #f9a8d4; color: #831843; }
@@ -94,22 +127,23 @@
     .btn-badge { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #64748b; background: #334155; color: #94a3b8; font-size: 15px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
     .btn-badge.active { background: #f59e0b; border-color: #f59e0b; color: #ffffff; }
     
+    /* 입력란 가로폭 초과 원천 방지 */
     .item-input { flex: 1; min-width: 0; width: 100%; height: 42px; background: #334155; border: 1px solid #475569; border-radius: 8px; padding: 0 10px; color: #ffffff; font-size: 15px; outline: none; box-sizing: border-box; user-select: text; -webkit-user-select: text; }
     .item-input:focus { border-color: #f59e0b; }
 
-    .btn-item-del { width: 36px; height: 36px; border-radius: 8px; border: 1px solid #ef4444; background: rgba(239, 68, 68, 0.15); color: #f87171; font-size: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s, color 0.15s, transform 0.1s; }
+    .btn-item-del { width: 36px; height: 36px; border-radius: 8px; border: 1px solid #ef4444; background: rgba(239, 68, 68, 0.15); color: #f87171; font-size: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .btn-item-del:active { background: #ef4444; color: #ffffff; transform: scale(0.92); }
 
-    /* 설정 액션 버튼 그룹 (3분할) */
+    /* 설정 액션 버튼 그룹 (3분할 반응형) */
     .reset-btn-group { display: flex; gap: 8px; margin-top: 15px; }
-    .btn-small { flex: 1; padding: 12px 6px; border-radius: 10px; border: none; font-size: 13px; font-weight: bold; cursor: pointer; transition: transform 0.1s; white-space: nowrap; }
+    .btn-small { flex: 1; padding: 12px 4px; border-radius: 10px; border: none; font-size: 13px; font-weight: bold; cursor: pointer; transition: transform 0.1s; white-space: nowrap; }
     .btn-small:active { transform: scale(0.95); }
     #resetNextOrderBtn { background: #bbf7d0; color: #14532d; }
     #clearAllBadgesBtn { background: #fde047; color: #713f12; }
     #clearAllNamesBtn { background: #fee2e2; color: #991b1b; }
-    .btn-save { width: 100%; height: 54px; background: #f59e0b; border: none; border-radius: 27px; color: #ffffff; font-size: 18px; font-weight: bold; cursor: pointer; }
+    .btn-save { width: 100%; height: 52px; background: #f59e0b; border: none; border-radius: 26px; color: #ffffff; font-size: 17px; font-weight: bold; cursor: pointer; }
 
-    /* 대기 명단 개별 확정/삭제 스타일 */
+    /* 대기 명단 섹션 */
     .event-input-box { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
     .event-input-box input { flex: 1; height: 42px; background: #0f172a; border: 1px solid #475569; border-radius: 8px; padding: 0 12px; color: #ffffff; font-size: 14px; outline: none; user-select: text; -webkit-user-select: text; }
     .event-input-box input:focus { border-color: #10b981; }
@@ -130,7 +164,7 @@
     .btn-batch-confirm { background: #065f46; color: #a7f3d0; border-color: #059669; }
     .btn-batch-clear { background: #7f1d1d; color: #fecaca; border-color: #dc2626; }
 
-    /* 아코디언 확정 기록 폴더 */
+    /* 확정 기록 섹션 */
     .acc-date-group { margin-bottom: 12px; border: 1px solid #475569; border-radius: 8px; overflow: hidden; }
     .acc-date-header { background: #1e293b; padding: 12px; font-weight: bold; font-size: 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: 1px solid #475569; }
     .acc-date-body { display: none; background: #0f172a; padding: 10px; }
@@ -147,7 +181,7 @@
 
   <!-- 메인 상단 헤더 -->
   <header>
-    <button class="btn-icon" id="reloadAppBtn" aria-label="새로고침" title="새로고침" style="font-size: 22px;">🔄</button>
+    <button class="btn-icon" id="reloadAppBtn" aria-label="새로고침" title="캐시 삭제 후 새로고침">🔄</button>
     <div class="header-right">
       <button class="btn-icon" id="openHistoryBtn" aria-label="기록">📋</button>
       <button class="btn-icon" id="openSettingsBtn" aria-label="설정">⚙️</button>
@@ -228,40 +262,31 @@
       <button class="btn-nav" id="historyToSettingsBtn">⚙️ 설정</button>
     </div>
     <div class="panel-body">
-      
-      <!-- 대기(미확정) 명단 섹션 -->
       <div class="panel-group">
-        <div class="panel-title">
-          <span>대기 명단 (테스트/실당첨 구분)</span>
-        </div>
+        <div class="panel-title"><span>대기 명단 (테스트/실당첨 구분)</span></div>
         <div class="event-input-box">
           <input type="text" id="eventNameInput" placeholder="저장할 이벤트명 (예: 1등 추첨)" />
         </div>
         <p style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">
-          실제 당첨자는 <b>[✓ 확정]</b>을 눌러 바로 저장하고, 테스트는 <b>[✕ 삭제]</b>로 버리세요.
+          실제 당첨자는 <b>[✓ 확정]</b>을 눌러 저장하고, 테스트는 <b>[✕ 삭제]</b>로 버리세요.
         </p>
-        
         <div id="tempListArea"></div>
-
         <div class="temp-batch-btns">
           <button class="btn-batch btn-batch-confirm" id="confirmAllTempBtn">대기 명단 모두 확정</button>
           <button class="btn-batch btn-batch-clear" id="clearTempBtn">대기 명단 전체 삭제</button>
         </div>
       </div>
 
-      <!-- 영구 저장된 확정 기록 섹션 -->
       <div class="panel-group">
         <div class="panel-title">
           <span>확정된 기록 목록</span>
           <button id="toggleAllBtn" style="background:none; border:none; color:#f59e0b; font-weight:bold; cursor:pointer;">전체 펼치기</button>
         </div>
         <div id="savedRecordsArea"></div>
-        
         <button id="clearAllSavedBtn" style="width:100%; padding:10px; background:transparent; border:1px solid #64748b; color:#94a3b8; border-radius:8px; font-size:12px; margin-top:16px; cursor:pointer;">
           확정 기록 전체 영구 삭제 (초기화)
         </button>
       </div>
-
     </div>
   </div>
 
@@ -293,20 +318,12 @@
       localStorage.setItem('ROULETTE_RECORDS', JSON.stringify(savedHistory));
     }
 
-    // 날짜 및 요일 포맷 헬퍼 함수
     function getDayOfWeek(dateStr) {
       if (!dateStr) return '';
-      const clean = dateStr.slice(0, 10);
-      const parts = clean.split('-');
+      const parts = dateStr.slice(0, 10).split('-');
       if (parts.length === 3) {
-        const y = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10) - 1;
-        const d = parseInt(parts[2], 10);
-        const dt = new Date(y, m, d);
-        if (!isNaN(dt.getTime())) {
-          const days = ['일', '월', '화', '수', '목', '금', '토'];
-          return days[dt.getDay()];
-        }
+        const dt = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        if (!isNaN(dt.getTime())) return ['일', '월', '화', '수', '목', '금', '토'][dt.getDay()];
       }
       return '';
     }
@@ -318,56 +335,46 @@
       return day ? `${clean} (${day})` : dateStr;
     }
 
-    // 새로고침 핸들러
+    // 강력 캐시 삭제 및 강제 새로고침
     document.getElementById('reloadAppBtn').onclick = async () => {
       try {
         if ('caches' in window) {
           const keys = await caches.keys();
-          await Promise.all(keys.map(key => caches.delete(key)));
+          await Promise.all(keys.map(k => caches.delete(k)));
         }
         if ('serviceWorker' in navigator) {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (let reg of registrations) {
-            await reg.update();
-          }
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (let r of regs) { await r.unregister(); }
         }
       } catch(e) {}
-      window.location.reload(true);
+      // 캐시를 타지 않도록 쿼리스트링을 붙여 이동
+      window.location.href = window.location.origin + window.location.pathname + '?v=' + Date.now();
     };
 
-    // 오디오 컨텍스트 및 음원 연동
+    // 오디오
     let audioCtx = null;
     let fanfareAudio = null;
-    try {
-      fanfareAudio = new Audio('팡파레(빵빠레).01.wav');
-    } catch(e) {}
-
+    try { fanfareAudio = new Audio('팡파레(빵빠레).01.wav'); } catch(e) {}
     function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
 
-    // 1. 회전 효과음
     function playTickSound() {
       if (!audioCtx) return;
       try {
         const now = audioCtx.currentTime;
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(800, now);
         osc.frequency.exponentialRampToValueAtTime(100, now + 0.02);
-        
-        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.setValueAtTime(0.2, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
-        
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        
         osc.start(now);
         osc.stop(now + 0.025);
       } catch(e) {}
     }
 
-    // 2. 당첨 축하 팡파레 사운드
     function playFanfareSound() {
       if (fanfareAudio) {
         fanfareAudio.currentTime = 0;
@@ -389,17 +396,10 @@
       [{f: 392.00, t:0.0, d:0.15}, {f: 523.25, t:0.15, d:0.15}, {f: 659.25, t:0.30, d:0.15}, {f: 783.99, t:0.45, d:0.90}].forEach(n => {
         playNote(n.f, now+n.t, n.d, 'square', 0.15); playNote(n.f, now+n.t, n.d, 'sawtooth', 0.15);
       });
-      playNote(523.25, now+0.45, 0.90, 'square', 0.15); playNote(1046.50, now+0.45, 0.90, 'sawtooth', 0.1);
-      
-      const bSize = audioCtx.sampleRate * 1.5; const buf = audioCtx.createBuffer(1, bSize, audioCtx.sampleRate);
-      const data = buf.getChannelData(0); for(let i=0; i<bSize; i++) data[i] = Math.random()*2-1;
-      const noise = audioCtx.createBufferSource(); noise.buffer = buf;
-      const filter = audioCtx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 2000;
-      const nGain = audioCtx.createGain(); nGain.gain.setValueAtTime(0, now+0.45); nGain.gain.linearRampToValueAtTime(0.4, now+0.5); nGain.gain.exponentialRampToValueAtTime(0.001, now+1.2);
-      noise.connect(filter); filter.connect(nGain); nGain.connect(audioCtx.destination); noise.start(now+0.45);
+      playNote(523.25, now+0.45, 0.90, 'square', 0.15);
     }
 
-    // 룰렛 캔버스 렌더링
+    // 룰렛 캔버스
     const wheelCanvas = document.getElementById('wheelCanvas');
     const ctx = wheelCanvas.getContext('2d');
     let currentAngle = 0; let isSpinning = false;
@@ -422,7 +422,6 @@
       ctx.restore();
     }
 
-    // 룰렛 회전 물리 엔진
     function spinWheel() {
       if (isSpinning) return; initAudio();
       const num = state.count; const arc = (2 * Math.PI) / num;
@@ -441,7 +440,6 @@
       const totalRotation = (2 * Math.PI * 7) + diff;
       const startAngle = currentAngle; const finalAngle = startAngle + totalRotation;
       const durationMs = state.duration * 1000; let startTime = null;
-
       let lastSector = Math.floor(currentAngle / arc);
 
       isSpinning = true; document.getElementById('spinBtn').disabled = true;
@@ -486,7 +484,7 @@
       document.getElementById('winnerModal').classList.add('active');
     }
 
-    // 네온 폭죽 효과
+    // 네온 폭죽
     const confettiCanvas = document.getElementById('confettiCanvas');
     const cCtx = confettiCanvas.getContext('2d');
     let confettiParticles = [];
@@ -502,31 +500,28 @@
     const NEON_PALETTE = ["#ff0055", "#00ffff", "#ffea00", "#ff00ea", "#00ff66", "#ffffff", "#ff7700", "#38bdf8", "#f43f5e", "#a855f7"];
 
     function startConfetti() {
-      const w = confettiCanvas.width;
-      const h = confettiCanvas.height;
-      const particleCount = 220;
-
-      confettiParticles = Array.from({ length: particleCount }, () => {
+      const w = confettiCanvas.width; const h = confettiCanvas.height;
+      confettiParticles = Array.from({ length: 180 }, () => {
         const isLeft = Math.random() < 0.5;
         return {
           x: isLeft ? w * 0.2 + (Math.random() * w * 0.1) : w * 0.8 - (Math.random() * w * 0.1),
           y: h * 0.65,
-          w: Math.random() * 8 + 6,
-          h: Math.random() * 14 + 8,
+          w: Math.random() * 8 + 5,
+          h: Math.random() * 12 + 6,
           color: NEON_PALETTE[Math.floor(Math.random() * NEON_PALETTE.length)],
-          vx: (isLeft ? 1 : -1) * (Math.random() * 9 + 4) + (Math.random() - 0.5) * 8,
-          vy: -(Math.random() * 18 + 13),
+          vx: (isLeft ? 1 : -1) * (Math.random() * 8 + 4) + (Math.random() - 0.5) * 6,
+          vy: -(Math.random() * 16 + 12),
           gravity: 0.42,
           rotation: Math.random() * 360,
-          rotSpeed: (Math.random() - 0.5) * 12,
+          rotSpeed: (Math.random() - 0.5) * 10,
           tiltAngle: Math.random() * Math.PI,
-          tiltSpeed: Math.random() * 0.12 + 0.05,
+          tiltSpeed: Math.random() * 0.1 + 0.05,
           opacity: 1
         };
       });
 
       const startTime = performance.now();
-      const maxDuration = 4500;
+      const maxDuration = 4000;
 
       function render(now) {
         cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
@@ -549,25 +544,20 @@
             cCtx.scale(1, Math.cos(p.tiltAngle));
             cCtx.fillStyle = p.color;
             cCtx.globalAlpha = p.opacity;
-            cCtx.shadowColor = p.color;
-            cCtx.shadowBlur = 4;
             cCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
             cCtx.restore();
           }
         });
 
-        if (alive && elapsed < maxDuration) {
-          confettiAnim = requestAnimationFrame(render);
-        } else {
-          cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-        }
+        if (alive && elapsed < maxDuration) confettiAnim = requestAnimationFrame(render);
+        else cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
       }
 
       cancelAnimationFrame(confettiAnim);
       confettiAnim = requestAnimationFrame(render);
     }
 
-    // 설정 리스트 렌더링
+    // 설정 리스트
     function renderSettingsList() {
       const listEl = document.getElementById('itemList'); listEl.innerHTML = '';
       for (let i = 0; i < state.count; i++) {
@@ -593,10 +583,7 @@
         };
 
         row.querySelector('.btn-item-del').onclick = () => {
-          if (state.count <= 2) {
-            alert("최소 2명 이상이어야 합니다.");
-            return;
-          }
+          if (state.count <= 2) { alert("최소 2명 이상이어야 합니다."); return; }
           if (it.order !== null) {
             const remOrder = it.order;
             state.items.forEach(x => { if (x.order && x.order > remOrder) x.order--; });
@@ -620,23 +607,16 @@
         inputEl.oninput = (e) => { it.name = e.target.value; };
 
         let justFocused = false;
-        inputEl.addEventListener('focus', function() {
-          justFocused = true;
-          setTimeout(() => { this.select(); }, 10);
-        });
-        inputEl.addEventListener('mouseup', function(e) {
-          if (justFocused) { e.preventDefault(); this.select(); justFocused = false; }
-        });
-        inputEl.addEventListener('touchend', function(e) {
-          if (justFocused) { setTimeout(() => { this.select(); justFocused = false; }, 30); }
-        });
+        inputEl.addEventListener('focus', function() { justFocused = true; setTimeout(() => this.select(), 10); });
+        inputEl.addEventListener('mouseup', function(e) { if (justFocused) { e.preventDefault(); this.select(); justFocused = false; } });
+        inputEl.addEventListener('touchend', function() { if (justFocused) { setTimeout(() => { this.select(); justFocused = false; }, 30); } });
         inputEl.addEventListener('blur', function() { justFocused = false; });
 
         listEl.appendChild(row);
       }
     }
 
-    // 모달 제어 및 내비게이션
+    // 모달 제어
     const settingsModal = document.getElementById('settingsModal');
     const historyModal = document.getElementById('historyModal');
 
@@ -692,10 +672,7 @@
 
     document.getElementById('clearAllNamesBtn').onclick = () => {
       if (confirm("입력된 모든 참가자 이름을 지우시겠습니까?")) {
-        state.items.forEach(it => {
-          it.name = '';
-          it.order = null;
-        });
+        state.items.forEach(it => { it.name = ''; it.order = null; });
         state.currentTurnIndex = 1;
         renderSettingsList();
         drawWheel();
@@ -703,26 +680,19 @@
       }
     };
 
-    // 대기 명단 개별 확정 로직
     function confirmSingleWinner(rec) {
       const evName = document.getElementById('eventNameInput').value.trim() || '일반 추첨';
       let targetEvent = savedHistory.find(ev => ev.date === rec.date && ev.eventName === evName);
       if (targetEvent) {
         targetEvent.winners.push(rec.name);
       } else {
-        savedHistory.push({
-          id: Date.now(),
-          date: rec.date,
-          eventName: evName,
-          winners: [rec.name]
-        });
+        savedHistory.push({ id: Date.now(), date: rec.date, eventName: evName, winners: [rec.name] });
       }
       tempHistory = tempHistory.filter(t => t.id !== rec.id);
       saveState();
       renderHistory();
     }
 
-    // 기록 화면 렌더링
     function renderHistory() {
       const tempArea = document.getElementById('tempListArea');
       tempArea.innerHTML = tempHistory.length === 0 ? '<div style="color:#94a3b8; font-size:14px; text-align:center; padding:12px;">대기 중인 추첨 기록이 없습니다.</div>' : '';
@@ -731,23 +701,15 @@
         const div = document.createElement('div');
         div.className = 'record-item';
         div.innerHTML = `
-          <div class="record-info">
-            <span class="record-time">${rec.time}</span>
-            <span class="record-name">${rec.name}</span>
-          </div>
-          <div class="record-actions">
-            <button class="btn-confirm-sm">✓ 확정</button>
-            <button class="btn-del-sm">✕ 삭제</button>
-          </div>
+          <div class="record-info"><span class="record-time">${rec.time}</span><span class="record-name">${rec.name}</span></div>
+          <div class="record-actions"><button class="btn-confirm-sm">✓ 확정</button><button class="btn-del-sm">✕ 삭제</button></div>
         `;
-
         div.querySelector('.btn-confirm-sm').onclick = () => confirmSingleWinner(rec);
         div.querySelector('.btn-del-sm').onclick = () => {
           tempHistory = tempHistory.filter(t => t.id !== rec.id);
           saveState();
           renderHistory();
         };
-
         tempArea.appendChild(div);
       });
 
@@ -765,7 +727,7 @@
           <div class="acc-date-header">
             <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">📅 ${formatDateWithDay(dateKey)}</span>
             <div style="display:flex; gap:10px; align-items:center; flex-shrink:0;">
-              <span class="btn-edit-date" style="color:#38bdf8; cursor:pointer; font-size:13px; font-weight:normal;">✏️ 날짜 수정</span>
+              <span class="btn-edit-date" style="color:#38bdf8; cursor:pointer; font-size:13px;">✏️ 수정</span>
               <button class="btn-del-sm" style="background:transparent; color:#ef4444; padding:0; font-size:13px;">삭제</button>
             </div>
           </div>
@@ -779,26 +741,18 @@
 
         dateDiv.querySelector('.btn-edit-date').onclick = (e) => {
           e.stopPropagation();
-          const cleanDate = dateKey.slice(0, 10);
-          const newDate = prompt("수정할 날짜를 입력하세요 (예: YYYY-MM-DD):", cleanDate);
-          if (newDate !== null) {
-            const trimmed = newDate.trim().slice(0, 10);
-            if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-              savedHistory.forEach(h => { if (h.date === dateKey) h.date = trimmed; });
-              saveState();
-              renderHistory();
-            } else {
-              alert("날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형태로 입력해 주세요 (예: 2026-09-10).");
-            }
+          const newDate = prompt("수정할 날짜를 입력하세요 (예: YYYY-MM-DD):", dateKey.slice(0, 10));
+          if (newDate && /^\d{4}-\d{2}-\d{2}$/.test(newDate.trim())) {
+            savedHistory.forEach(h => { if (h.date === dateKey) h.date = newDate.trim(); });
+            saveState(); renderHistory();
           }
         };
 
         dateDiv.querySelector('button').onclick = (e) => {
           e.stopPropagation();
-          if(confirm(`${formatDateWithDay(dateKey)}의 모든 확정 기록을 삭제할까요?`)) { 
+          if(confirm(`${formatDateWithDay(dateKey)}의 모든 기록을 삭제할까요?`)) { 
             savedHistory = savedHistory.filter(h => h.date !== dateKey); 
-            saveState(); 
-            renderHistory(); 
+            saveState(); renderHistory(); 
           }
         };
 
@@ -807,10 +761,10 @@
           const evDiv = document.createElement('div'); evDiv.className = 'acc-event-group';
           evDiv.innerHTML = `
             <div class="acc-event-header">
-              <span class="ev-name-text" style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-right:8px;">🏆 ${ev.eventName}</span>
+              <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">🏆 ${ev.eventName}</span>
               <div style="display:flex; gap:10px; align-items:center; flex-shrink:0;">
-                <span class="btn-edit-ev" style="color:#38bdf8; cursor:pointer; font-size:13px; font-weight:normal;">✏️ 이름</span>
-                <span class="btn-edit-ev-date" style="color:#a78bfa; cursor:pointer; font-size:13px; font-weight:normal;">📅 날짜</span>
+                <span class="btn-edit-ev" style="color:#38bdf8; cursor:pointer; font-size:13px;">✏️ 이름</span>
+                <span class="btn-edit-ev-date" style="color:#a78bfa; cursor:pointer; font-size:13px;">📅 날짜</span>
                 <span class="del-ev" style="color:#ef4444; cursor:pointer; font-size:14px;">✕</span>
               </div>
             </div>
@@ -819,38 +773,18 @@
 
           evDiv.querySelector('.btn-edit-ev').onclick = () => {
             const newName = prompt("수정할 이벤트명을 입력하세요:", ev.eventName);
-            if (newName !== null) {
-              const trimmed = newName.trim();
-              if (trimmed.length > 0) {
-                ev.eventName = trimmed;
-                saveState();
-                renderHistory();
-              } else {
-                alert("이벤트명을 1글자 이상 입력해주세요.");
-              }
-            }
+            if (newName && newName.trim()) { ev.eventName = newName.trim(); saveState(); renderHistory(); }
           };
 
           evDiv.querySelector('.btn-edit-ev-date').onclick = () => {
-            const cleanDate = ev.date ? ev.date.slice(0, 10) : '';
-            const newDate = prompt(`[${ev.eventName}]의 날짜를 변경하세요 (예: YYYY-MM-DD):`, cleanDate);
-            if (newDate !== null) {
-              const trimmed = newDate.trim().slice(0, 10);
-              if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-                ev.date = trimmed;
-                saveState();
-                renderHistory();
-              } else {
-                alert("날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형태로 입력해 주세요 (예: 2026-09-10).");
-              }
-            }
+            const newDate = prompt("날짜를 변경하세요 (예: YYYY-MM-DD):", ev.date ? ev.date.slice(0, 10) : '');
+            if (newDate && /^\d{4}-\d{2}-\d{2}$/.test(newDate.trim())) { ev.date = newDate.trim(); saveState(); renderHistory(); }
           };
 
           evDiv.querySelector('.del-ev').onclick = () => {
             if(confirm(`[${ev.eventName}] 기록을 삭제할까요?`)) {
               savedHistory = savedHistory.filter(h => h.id !== ev.id);
-              saveState();
-              renderHistory();
+              saveState(); renderHistory();
             }
           };
 
@@ -860,56 +794,35 @@
       });
     }
 
-    // 대기 명단 일괄 확정
     document.getElementById('confirmAllTempBtn').onclick = () => {
       if (tempHistory.length === 0) return alert("확정할 대기 명단이 없습니다.");
       const evName = document.getElementById('eventNameInput').value.trim() || '일반 추첨';
-      
       tempHistory.forEach(rec => {
         let targetEvent = savedHistory.find(ev => ev.date === rec.date && ev.eventName === evName);
-        if (targetEvent) {
-          targetEvent.winners.push(rec.name);
-        } else {
-          savedHistory.push({
-            id: Date.now() + Math.random(),
-            date: rec.date,
-            eventName: evName,
-            winners: [rec.name]
-          });
-        }
+        if (targetEvent) { targetEvent.winners.push(rec.name); } 
+        else { savedHistory.push({ id: Date.now() + Math.random(), date: rec.date, eventName: evName, winners: [rec.name] }); }
       });
-      tempHistory = [];
-      saveState();
-      renderHistory();
+      tempHistory = []; saveState(); renderHistory();
       alert(`대기 명단이 [${evName}] 기록으로 확정되었습니다.`);
     };
 
-    // 대기 명단 일괄 삭제
     document.getElementById('clearTempBtn').onclick = () => {
-      if(confirm("대기 명단을 모두 삭제할까요? (테스트 기록 비우기)")) { 
-        tempHistory = []; 
-        saveState(); 
-        renderHistory(); 
-      }
+      if(confirm("대기 명단을 모두 삭제할까요?")) { tempHistory = []; saveState(); renderHistory(); }
     };
 
-    // 확정 기록 전체 펼치기/접기
     document.getElementById('toggleAllBtn').onclick = (e) => {
       const isOpening = e.target.innerText === '전체 펼치기';
       e.target.innerText = isOpening ? '모두 접기' : '전체 펼치기';
       document.querySelectorAll('.acc-date-body').forEach(el => el.classList.toggle('open', isOpening));
     };
 
-    // 확정 기록 전체 초기화
     document.getElementById('clearAllSavedBtn').onclick = () => {
-      if(confirm("정말 모든 영구 확정 기록을 완전히 삭제하시겠습니까? (복구 불가)")) { 
-        savedHistory = []; 
-        saveState(); 
-        renderHistory(); 
-      }
+      if(confirm("정말 모든 영구 확정 기록을 삭제하시겠습니까?")) { savedHistory = []; saveState(); renderHistory(); }
     };
 
-    if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{})); }
+    if ('serviceWorker' in navigator) { 
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{})); 
+    }
 
     drawWheel();
   </script>
